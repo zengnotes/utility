@@ -29,7 +29,29 @@ import (
 	"time"
 	"fmt"
 	"crypto/md5"
+	"encoding/hex"
+	"crypto/sha256"
 )
+
+func Md5(str string) string {
+	h := md5.New()
+	h.Write([]byte(str))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func Md5_16(str string) []byte {
+	h := md5.New()
+	h.Write([]byte(str))
+	//strd := hex.EncodeToString(h.Sum(nil))
+	//strd = strd[8:24]
+	return h.Sum(nil)
+}
+
+func Sha256(str string) string {
+	hash := sha256.New()
+	hash.Write([]byte(str))
+	return hex.EncodeToString(hash.Sum(nil))
+}
 
 // base64 encode
 func Base64Encode_(str []byte) string {
@@ -302,7 +324,7 @@ func RandomCreateBytes(n int, alphabets ...byte) []byte {
 
 // PKCS7Padding pads as prescribed by the PKCS7 standard
 func PKCS7Padding(src []byte) []byte {
-	padding := aes.BlockSize - len(src)%aes.BlockSize
+	padding := aes.BlockSize - len(src) % aes.BlockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(src, padtext...)
 }
@@ -310,13 +332,13 @@ func PKCS7Padding(src []byte) []byte {
 // PKCS7UnPadding unpads as prescribed by the PKCS7 standard
 func PKCS7UnPadding(src []byte) ([]byte, error) {
 	length := len(src)
-	unpadding := int(src[length-1])
+	unpadding := int(src[length - 1])
 
 	if unpadding > aes.BlockSize || unpadding == 0 {
 		return nil, fmt.Errorf("invalid padding")
 	}
 
-	pad := src[len(src)-unpadding:]
+	pad := src[len(src) - unpadding:]
 	for i := 0; i < unpadding; i++ {
 		if pad[i] != byte(unpadding) {
 			return nil, fmt.Errorf("invalid padding")
@@ -358,10 +380,12 @@ func NewECBEncrypter(b cipher.Block) cipher.BlockMode {
 	return (*ecbEncrypter)(newECB(b))
 }
 
-func (x *ecbEncrypter) BlockSize() int { return x.blockSize }
+func (x *ecbEncrypter) BlockSize() int {
+	return x.blockSize
+}
 
 func (x *ecbEncrypter) CryptBlocks(dst, src []byte) {
-	if len(src)%x.blockSize != 0 {
+	if len(src) % x.blockSize != 0 {
 		panic("dec_ecb: input not full blocks")
 	}
 	if len(dst) < len(src) {
@@ -377,7 +401,6 @@ func (x *ecbEncrypter) CryptBlocks(dst, src []byte) {
 		dst = dst[x.blockSize:]
 	}
 }
-
 
 func uniqid() string {
 	r.Seed(time.Now().UnixNano())
@@ -395,4 +418,59 @@ func Generate() string {
 	str := uniqid()
 
 	return fmt.Sprintf("%x-%x-%x-%x-%x", str[0:4], str[4:6], str[6:8], str[8:10], str[10:16])
+}
+
+// 按字节截取字符串 utf-8不乱码
+func SubstrByByte(str string, length int) string {
+	bs := []byte(str)[:length]
+	bl := 0
+	for i := len(bs) - 1; i >= 0; i-- {
+		switch {
+		case bs[i] >= 0 && bs[i] <= 127:
+			return string(bs[:i + 1])
+		case bs[i] >= 128 && bs[i] <= 191:
+			bl++
+		case bs[i] >= 192 && bs[i] <= 253:
+			cl := 0
+			switch {
+			case bs[i] & 252 == 252:
+				cl = 6
+			case bs[i] & 248 == 248:
+				cl = 5
+			case bs[i] & 240 == 240:
+				cl = 4
+			case bs[i] & 224 == 224:
+				cl = 3
+			default:
+				cl = 2
+			}
+			if bl + 1 == cl {
+				return string(bs[:i + cl])
+			}
+			return string(bs[:i])
+		}
+	}
+	return ""
+}
+
+func SubString(str string, begin, length int) string {
+	// 将字符串的转换成[]rune
+	rs := []rune(str)
+	lth := len(rs)
+	endstr := ""
+	// 简单的越界判断
+	if begin < 0 {
+		begin = 0
+	}
+	if begin >= lth {
+		begin = lth
+	}
+	end := begin + length
+	if end > lth {
+		end = lth
+	} else {
+		endstr = ""
+	}
+	// 返回子串
+	return string(rs[begin:end]) + endstr
 }
